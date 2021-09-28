@@ -525,5 +525,66 @@ namespace DotNotStandard.Caching.Core.UnitTests.InMemory
 
 		#endregion
 
+		#region Invalidate
+
+		#region Value Types
+
+		[TestMethod]
+		public void Invalidate_OfIntWhenCalledInvalidatedAndCalledAgain_ReturnsSecondCachedValue()
+		{
+
+			// Arrange
+			int cachedValue = 100;
+			InMemoryItemCache<int> cache = new InMemoryItemCache<int>(
+				null,
+				() => { cachedValue += 25; return cachedValue; },
+				TimeSpan.FromMinutes(2),
+				100, 100);
+			int actualResult;
+			int expectedResult = 150;
+
+			// Act
+			_ = cache.GetItem();
+			cache.Invalidate();
+			actualResult = cache.GetItem();
+
+			// Assert
+			Assert.AreEqual(expectedResult, actualResult);
+
+		}
+
+		#endregion
+
+		#region Reference Types
+
+		[TestMethod]
+		public void Invalidate_OfCacheableClassWhenCalledInvalidatedAndCalledAgain_ReturnsSecondCachedValue()
+		{
+
+			// Arrange
+			int cachedValue = 100;
+			InMemoryItemCache<CacheableClass> cache = new InMemoryItemCache<CacheableClass>(
+				null,
+				() => { cachedValue += 25; return new CacheableClass(cachedValue); },
+				TimeSpan.FromMinutes(2));
+			CacheableClass cachedClass;
+			int actualResult;
+			int expectedResult = 150;
+
+			// Act
+			_ = cache.GetItem();
+			cache.Invalidate();
+			cachedClass = cache.GetItem();
+			actualResult = cachedClass.GetValue();
+
+			// Assert
+			Assert.AreEqual(expectedResult, actualResult);
+
+		}
+
+		#endregion
+		
+		#endregion
+
 	}
 }

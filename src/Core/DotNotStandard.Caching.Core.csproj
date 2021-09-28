@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <PackageId>DotNotStandard.Caching</PackageId>
-    <Version>0.8.0</Version>
+    <Version>0.9.0</Version>
     <Authors>DotNotStandard</Authors>
     <Product>DotNotStandard.Caching</Product>
     <Description>Caching utilities, including in-memory caching helpers</Description>

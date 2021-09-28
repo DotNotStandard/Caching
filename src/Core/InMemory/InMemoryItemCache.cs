@@ -166,6 +166,14 @@ namespace DotNotStandard.Caching.Core.InMemory
 			return DeepCloneOf(cacheEntry.CachedItem);
 		}
 
+		/// <summary>
+		/// Invalidate the cache, so that data is refreshed when next required
+		/// </summary>
+		public void Invalidate()
+		{
+			_cacheEntry.Invalidate();
+		}
+
 		#endregion
 
 		#region Private Helper Methods
@@ -200,6 +208,11 @@ namespace DotNotStandard.Caching.Core.InMemory
 			public DateTime ExpiresAt { get; private set; }
 
 			public int RetrievalTimeout { get; private set; }
+
+			public void Invalidate()
+			{
+				ExpiresAt = DateTime.Now.AddDays(-1);
+			}
 
 			#region Constructors
 
