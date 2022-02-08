@@ -1,4 +1,10 @@
-﻿using DotNotStandard.Caching.Core.InMemory;
+﻿/*
+ * Copyright © 2022 DotNotStandard. All rights reserved.
+ * 
+ * See the LICENSE file in the root of the repo for licensing details.
+ * 
+ */
+using DotNotStandard.Caching.Core.InMemory;
 using DotNotStandard.Caching.Core.UnitTests.InMemory.Fakes;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
