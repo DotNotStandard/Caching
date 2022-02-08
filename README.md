@@ -14,8 +14,7 @@ The following docs pages on the Microsoft website provide more details.
 
 [https://docs.microsoft.com/en-us/dotnet/core/compatibility/core-libraries/5.0/binaryformatter-serialization-obsolete](https://docs.microsoft.com/en-us/dotnet/core/compatibility/core-libraries/5.0/binaryformatter-serialization-obsolete)
 
-[https://docs.microsoft.com/en-us/dotnet/standard/serialization/binaryformatter-security-guide]
-(https://docs.microsoft.com/en-us/dotnet/standard/serialization/binaryformatter-security-guide)
+[https://docs.microsoft.com/en-us/dotnet/standard/serialization/binaryformatter-security-guide](https://docs.microsoft.com/en-us/dotnet/standard/serialization/binaryformatter-security-guide)
 
 I intend to introduce a replacement for the package in the future for use in CSLA applications. This newer
 version will make use of CSLA's own cloning functionality isntead of using BinaryFormatter. This is on the 
