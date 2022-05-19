@@ -5,6 +5,7 @@
  * 
  */
 using DotNotStandard.Caching.Core.InMemory;
+using DotNotStandard.Caching.Core.InMemory.Cloning;
 using DotNotStandard.Caching.Core.UnitTests.InMemory.Fakes;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
@@ -29,6 +30,7 @@ namespace DotNotStandard.Caching.Core.UnitTests.InMemory
 
 			// Arrange
 			InMemoryItemCache<int> cache = new InMemoryItemCache<int>(
+				new NonCloningClonerFactory<int>(),
 				null,
 				() => { Thread.Sleep(200); return 125; },
 				TimeSpan.FromMinutes(2),
@@ -56,6 +58,7 @@ namespace DotNotStandard.Caching.Core.UnitTests.InMemory
 
 			// Arrange
 			InMemoryItemCache<int> cache = new InMemoryItemCache<int>(
+				new NonCloningClonerFactory<int>(),
 				null,
 				() => { return 125; },
 				TimeSpan.FromMinutes(2),
@@ -77,15 +80,15 @@ namespace DotNotStandard.Caching.Core.UnitTests.InMemory
 
 			// Arrange
 			CacheableStruct cacheableStruct = new CacheableStruct(125);
-			InMemoryItemCache<int> cache = new InMemoryItemCache<int>(
+			InMemoryItemCache<CacheableStruct> cache = new InMemoryItemCache<CacheableStruct>(
 				null,
-				() => { return cacheableStruct.GetValue(); },
+				() => { return cacheableStruct; },
 				TimeSpan.FromMinutes(2));
 			int actualResult;
 			int expectedResult = 125;
 
 			// Act
-			actualResult = cache.GetItem();
+			actualResult = cache.GetItem().GetValue();
 
 			// Assert
 			Assert.AreEqual(expectedResult, actualResult);
@@ -98,9 +101,9 @@ namespace DotNotStandard.Caching.Core.UnitTests.InMemory
 
 			// Arrange
 			CacheableStruct cacheableStruct = new CacheableStruct(125);
-			InMemoryItemCache<int> cache = new InMemoryItemCache<int>(
+			InMemoryItemCache<CacheableStruct> cache = new InMemoryItemCache<CacheableStruct>(
 				null,
-				() => { return cacheableStruct.GetValue(); },
+				() => { return cacheableStruct.GetSelf(); },
 				TimeSpan.FromMinutes(2));
 			int actualResult;
 			int expectedResult = 1;
@@ -110,7 +113,7 @@ namespace DotNotStandard.Caching.Core.UnitTests.InMemory
 			_ = cache.GetItem();
 			_ = cache.GetItem();
 			_ = cache.GetItem();
-			actualResult = cacheableStruct.NumberOfCalls;
+			actualResult = cacheableStruct.NumberOfGetSelfCalls;
 
 			// Assert
 			Assert.AreEqual(expectedResult, actualResult);
@@ -135,7 +138,7 @@ namespace DotNotStandard.Caching.Core.UnitTests.InMemory
 
 			// Act
 			Task<CacheableClass> task1 = new Task<CacheableClass>(() => { return cache.GetItem(); });
-			Task<CacheableClass> task2 = new Task<CacheableClass>(() => { Thread.Sleep(50); return cache.GetItem(); });
+			Task<CacheableClass> task2 = new Task<CacheableClass>(() => { Thread.Sleep(60); return cache.GetItem(); });
 			// Start the 2 tasks, with task2 likely to have to wait on task1
 			task1.Start();
 			task2.Start();
@@ -281,6 +284,7 @@ namespace DotNotStandard.Caching.Core.UnitTests.InMemory
 
 			// Arrange
 			InMemoryItemCache<int> cache = new InMemoryItemCache<int>(
+				new NonCloningClonerFactory<int>(),
 				async () => { await Task.Delay(200); return 125; },
 				null,
 				TimeSpan.FromMinutes(2),
@@ -312,6 +316,7 @@ namespace DotNotStandard.Caching.Core.UnitTests.InMemory
 
 			// Arrange
 			InMemoryItemCache<int> cache = new InMemoryItemCache<int>(
+				new NonCloningClonerFactory<int>(),
 				() => { return Task.FromResult(100); },
 				null,
 				TimeSpan.FromMinutes(2),
@@ -333,15 +338,15 @@ namespace DotNotStandard.Caching.Core.UnitTests.InMemory
 
 			// Arrange
 			CacheableStruct cacheableStruct = new CacheableStruct(100);
-			InMemoryItemCache<int> cache = new InMemoryItemCache<int>(
-				() => { return Task.FromResult(cacheableStruct.GetValue()); },
+			InMemoryItemCache<CacheableStruct> cache = new InMemoryItemCache<CacheableStruct>(
+				() => { return Task.FromResult(cacheableStruct.GetSelf()); },
 				null,
 				TimeSpan.FromMinutes(2));
 			int actualResult;
 			int expectedResult = 100;
 
 			// Act
-			actualResult = await cache.GetItemAsync();
+			actualResult = (await cache.GetItemAsync()).GetValue();
 
 			// Assert
 			Assert.AreEqual(expectedResult, actualResult);
@@ -354,8 +359,8 @@ namespace DotNotStandard.Caching.Core.UnitTests.InMemory
 
 			// Arrange
 			CacheableStruct cacheableStruct = new CacheableStruct(100);
-			InMemoryItemCache<int> cache = new InMemoryItemCache<int>(
-				() => { return Task.FromResult(cacheableStruct.GetValue()); },
+			InMemoryItemCache<CacheableStruct> cache = new InMemoryItemCache<CacheableStruct>(
+				() => { return Task.FromResult(cacheableStruct.GetSelf()); },
 				null,
 				TimeSpan.FromMinutes(2));
 			int actualResult;
@@ -366,7 +371,7 @@ namespace DotNotStandard.Caching.Core.UnitTests.InMemory
 			_ = await cache.GetItemAsync();
 			_ = await cache.GetItemAsync();
 			_ = await cache.GetItemAsync();
-			actualResult = cacheableStruct.NumberOfCalls;
+			actualResult = cacheableStruct.NumberOfGetSelfCalls;
 
 			// Assert
 			Assert.AreEqual(expectedResult, actualResult);
@@ -542,6 +547,7 @@ namespace DotNotStandard.Caching.Core.UnitTests.InMemory
 			// Arrange
 			int cachedValue = 100;
 			InMemoryItemCache<int> cache = new InMemoryItemCache<int>(
+				new NonCloningClonerFactory<int>(),
 				null,
 				() => { cachedValue += 25; return cachedValue; },
 				TimeSpan.FromMinutes(2),

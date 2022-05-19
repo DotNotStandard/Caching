@@ -11,25 +11,43 @@ using System.Text;
 namespace DotNotStandard.Caching.Core.UnitTests.InMemory.Fakes
 {
 
-	internal struct CacheableStruct
+	internal struct CacheableStruct : ICloneable
 	{
 
 		private int _value;
 
-		public int NumberOfCalls { get; private set; }
+		public int NumberOfGetValueCalls { get; private set; }
+
+		public int NumberOfGetSelfCalls { get; private set; }
 
 		public CacheableStruct(int value)
 		{
 			_value = value;
-			NumberOfCalls = 0;
+			NumberOfGetValueCalls = 0;
+			NumberOfGetSelfCalls = 0;
 		}
 
 		public int GetValue()
 		{
-			NumberOfCalls++;
+			NumberOfGetValueCalls++;
 			return _value;
 		}
 
-	}
+		public CacheableStruct GetSelf()
+		{
+			NumberOfGetSelfCalls++;
+			return this;
+		}
+
+		#region ICloneable Interface
+
+		public object Clone()
+		{
+			 return this.MemberwiseClone();
+		}
+
+        #endregion
+
+    }
 
 }

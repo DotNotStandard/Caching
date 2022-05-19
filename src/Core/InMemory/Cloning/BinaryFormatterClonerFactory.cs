@@ -21,7 +21,7 @@ namespace DotNotStandard.Caching.Core.InMemory.Cloning
 	/// This will be replaced with a better implementation in the future.
 	/// </remarks>
 	/// <typeparam name="T">The type of object that will be cloned</typeparam>
-	internal class BinaryFormatterClonerFactory<T> : IDeepClonerFactory<T>
+	public class BinaryFormatterClonerFactory<T> : IDeepClonerFactory<T>
 	{
 
 		/// <summary>

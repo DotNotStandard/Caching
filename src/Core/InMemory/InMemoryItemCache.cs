@@ -49,6 +49,24 @@ namespace DotNotStandard.Caching.Core.InMemory
 		/// <param name="repeatRetrievalTimeout">The number of milliseconds to wait before timing out on repeat retrievals before returning stale data</param>
 		/// <remarks>Either async or sync delegate may be null, but not both</remarks>
 		public InMemoryItemCache(Func<Task<T>> asyncRetrievalDelegate, Func<T> syncRetrievalDelegate, TimeSpan cachingPeriod,
+			int initialRetrievalTimeout = int.MaxValue, int repeatRetrievalTimeout = 100) : 
+			this(new CloneableClonerFactory<T>(),
+				asyncRetrievalDelegate, syncRetrievalDelegate, cachingPeriod, initialRetrievalTimeout, repeatRetrievalTimeout)
+        {
+        }
+
+		/// <summary>
+		/// Initialise the in-memory cache using the delegates and caching period provided
+		/// </summary>
+		/// <param name="clonerFactory">An instance of the cloner factory to be used in cloning cache items</param>
+		/// <param name="asyncRetrievalDelegate">The async delegate to await for retrieval of the object, e.g. from a database</param>
+		/// <param name="syncRetrievalDelegate">The syncnronous delegate for retrieval of the object, e.g. from a database</param>
+		/// <param name="cachingPeriod">The period for which caching is to be performed</param>
+		/// <param name="initialRetrievalTimeout">The number of milliseconds to wait before timing out the first retrieval before returning the default</param>
+		/// <param name="repeatRetrievalTimeout">The number of milliseconds to wait before timing out on repeat retrievals before returning stale data</param>
+		/// <remarks>Either async or sync delegate may be null, but not both</remarks>
+		public InMemoryItemCache(IDeepClonerFactory<T> clonerFactory,
+			Func<Task<T>> asyncRetrievalDelegate, Func<T> syncRetrievalDelegate, TimeSpan cachingPeriod,
 			int initialRetrievalTimeout = int.MaxValue, int repeatRetrievalTimeout = 100)
 		{
 			if (asyncRetrievalDelegate is null && syncRetrievalDelegate is null)
@@ -60,7 +78,7 @@ namespace DotNotStandard.Caching.Core.InMemory
 			_repeatRetrievalTimeout = repeatRetrievalTimeout;
 
 			// Create an instance of the default object cloner, for use when returning objects
-			_clonerFactory = new BinaryFormatterClonerFactory<T>();
+			_clonerFactory = clonerFactory;
 
 			// Create a default cache entry so that no null reference exceptions are encountered on first use
 			// This item is marked as immediately expiring, so that it always triggers a request to the source
