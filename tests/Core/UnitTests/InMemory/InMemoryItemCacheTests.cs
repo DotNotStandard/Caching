@@ -9,9 +9,7 @@ using DotNotStandard.Caching.Core.InMemory.Cloning;
 using DotNotStandard.Caching.Core.UnitTests.InMemory.Fakes;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
-using System.Threading;
 using System.Threading.Tasks;
-
 
 namespace DotNotStandard.Caching.Core.UnitTests.InMemory
 {
@@ -32,7 +30,7 @@ namespace DotNotStandard.Caching.Core.UnitTests.InMemory
 			InMemoryItemCache<int> cache = new InMemoryItemCache<int>(
 				new NonCloningClonerFactory<int>(),
 				null,
-				() => { Thread.Sleep(200); return 125; },
+				() => { TimeDelay.WaitFor(200); return 125; },
 				TimeSpan.FromMinutes(2),
 				50, 50);
 			int actualResult;
@@ -40,7 +38,7 @@ namespace DotNotStandard.Caching.Core.UnitTests.InMemory
 
 			// Act
 			Task<int> task1 = new Task<int>(() => { return cache.GetItem(); });
-			Task<int> task2 = new Task<int>(() => { Thread.Sleep(50); return cache.GetItem(); });
+			Task<int> task2 = new Task<int>(() => { TimeDelay.WaitFor(50); return cache.GetItem(); });
 			// Start the 2 tasks, with task2 likely to have to wait on task1
 			task1.Start();
 			task2.Start();
@@ -131,14 +129,14 @@ namespace DotNotStandard.Caching.Core.UnitTests.InMemory
 			// Arrange
 			InMemoryItemCache<CacheableClass> cache = new InMemoryItemCache<CacheableClass>(
 				async () => { await Task.Delay(200); return new CacheableClass(100); },
-				() => { Thread.Sleep(200); return new CacheableClass(125); },
+				() => { TimeDelay.WaitFor(200); return new CacheableClass(125); },
 				TimeSpan.FromMinutes(2),
 				50, 50);
 			CacheableClass cacheItem;
 
 			// Act
 			Task<CacheableClass> task1 = new Task<CacheableClass>(() => { return cache.GetItem(); });
-			Task<CacheableClass> task2 = new Task<CacheableClass>(() => { Thread.Sleep(60); return cache.GetItem(); });
+			Task<CacheableClass> task2 = new Task<CacheableClass>(() => { TimeDelay.WaitFor(60); return cache.GetItem(); });
 			// Start the 2 tasks, with task2 likely to have to wait on task1
 			task1.Start();
 			task2.Start();
@@ -216,7 +214,7 @@ namespace DotNotStandard.Caching.Core.UnitTests.InMemory
 			cacheItem = cache.GetItem();
 			initialCreatedAt = cacheItem.CreatedAt;
 			// Wait for the cache item to expire and then retry
-			Thread.Sleep(150);
+			TimeDelay.WaitFor(150);
 			cacheItem = cache.GetItem();
 			finalCreatedAt = cacheItem.CreatedAt;
 
@@ -478,7 +476,7 @@ namespace DotNotStandard.Caching.Core.UnitTests.InMemory
 			cacheItem = await cache.GetItemAsync();
 			initialCreatedAt = cacheItem.CreatedAt;
 			// Wait for the cache item to expire and then retry
-			Thread.Sleep(150);
+			TimeDelay.WaitFor(150);
 			cacheItem = await cache.GetItemAsync();
 			finalCreatedAt = cacheItem.CreatedAt;
 
