@@ -42,5 +42,32 @@ namespace DotNotStandard.Caching.Core.UnitTests
                 loopCount++;
             }
         }
+
+        /// <summary>
+        /// Wait for a specified number of milliseconds before returning
+        /// </summary>
+        /// <remarks>
+        /// Thread sleeps in GitHub actions seem to be ignored or behave differently, so this 
+        /// method is used to make tests wait for a specified period both when running tests 
+        /// locally and when tests run within GitHub actions
+        /// </remarks>
+        /// <param name="milliseconds">The number of millseconds to wait</param>
+        public static async Task WaitForAsync(int milliseconds)
+        {
+            long loopCount = long.MinValue;
+            DateTime endAt = DateTime.Now.AddMilliseconds(milliseconds);
+
+            if (milliseconds < 1) return;
+
+            while (DateTime.Now < endAt)
+            {
+                await Task.Delay(milliseconds);
+                if (loopCount == long.MaxValue)
+                {
+                    loopCount = long.MinValue;
+                }
+                loopCount++;
+            }
+        }
     }
 }

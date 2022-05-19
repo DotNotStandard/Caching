@@ -128,7 +128,7 @@ namespace DotNotStandard.Caching.Core.UnitTests.InMemory
 
 			// Arrange
 			InMemoryItemCache<CacheableClass> cache = new InMemoryItemCache<CacheableClass>(
-				async () => { await Task.Delay(200); return new CacheableClass(100); },
+				async () => { await TimeDelay.WaitForAsync(200); return new CacheableClass(100); },
 				() => { TimeDelay.WaitFor(200); return new CacheableClass(125); },
 				TimeSpan.FromMinutes(2),
 				50, 50);
@@ -283,7 +283,7 @@ namespace DotNotStandard.Caching.Core.UnitTests.InMemory
 			// Arrange
 			InMemoryItemCache<int> cache = new InMemoryItemCache<int>(
 				new NonCloningClonerFactory<int>(),
-				async () => { await Task.Delay(200); return 125; },
+				async () => { await TimeDelay.WaitForAsync(200); return 125; },
 				null,
 				TimeSpan.FromMinutes(2),
 				50, 50);
@@ -304,7 +304,7 @@ namespace DotNotStandard.Caching.Core.UnitTests.InMemory
 
 		private async Task<int> AwaitDelayAndGetItemFromIntCacheAsync(int delayPeriod, InMemoryItemCache<int> cache)
 		{
-			await Task.Delay(delayPeriod);
+			await TimeDelay.WaitForAsync(delayPeriod);
 			return await cache.GetItemAsync();
 		}
 
@@ -386,7 +386,7 @@ namespace DotNotStandard.Caching.Core.UnitTests.InMemory
 
 			// Arrange
 			InMemoryItemCache<CacheableClass> cache = new InMemoryItemCache<CacheableClass>(
-				async () => { await Task.Delay(200); return new CacheableClass(100); },
+				async () => { await TimeDelay.WaitForAsync(200); return new CacheableClass(100); },
 				null,
 				TimeSpan.FromMinutes(2),
 				50, 50);
@@ -406,7 +406,7 @@ namespace DotNotStandard.Caching.Core.UnitTests.InMemory
 
 		private async Task<CacheableClass> AwaitDelayAndGetItemFromCacheableClassCacheAsync(int delayPeriod, InMemoryItemCache<CacheableClass> cache)
 		{
-			await Task.Delay(delayPeriod);
+			await TimeDelay.WaitForAsync(delayPeriod);
 			return await cache.GetItemAsync();
 		}
 
