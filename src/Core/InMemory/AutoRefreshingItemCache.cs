@@ -4,6 +4,7 @@
  * See the LICENSE file in the root of the repo for licensing details.
  * 
  */
+using DotNotStandard.Caching.Core.InMemory.Cloning;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -21,7 +22,7 @@ namespace DotNotStandard.Caching.Core.InMemory
     {
         private bool _isInitialised = false;
         private readonly ILogger _logger;
-        private readonly object _cloner;
+        private readonly IDeepClonerFactory<T> _clonerFactory;
         private readonly Func<CancellationToken, Task<T>> _asyncLoadDelegate;
         private CancellationTokenSource _refreshDelayCancellationTokenSource = new CancellationTokenSource();
         private CancellationTokenSource _refreshingCancellationTokenSource = new CancellationTokenSource();
@@ -30,17 +31,19 @@ namespace DotNotStandard.Caching.Core.InMemory
         private CacheItem<T> _cacheItem;
         private Task _loadItemTask;
 
+        #region Constructors
+
         /// <summary>
         /// Create a new instance for use in caching some data
         /// </summary>
         /// <param name="logger">A logger to use for reporting issues with loading</param>
-        /// <param name="cloner">The cloner to use to perform cloning of the cached item prior to return</param>
+        /// <param name="clonerFactory">The factory for the cloner to in cloning the cached item prior to return</param>
         /// <param name="asyncLoadDelegate">The delegate that is used to load data</param>
         /// <param name="initialValue">The initial value to place into the cache, before loading is complete</param>
         /// <param name="refreshPeriod">The period between cache refreshes - the maxmimum data staleness</param>
         /// <param name="loadTimeout">The timeout for the load operation - defaults to TimeSpan.MaxValue</param>
         /// <exception cref="ArgumentException">One of the parameters was invalid</exception>
-        public AutoRefreshingItemCache(ILogger logger, object cloner, 
+        public AutoRefreshingItemCache(ILogger logger, IDeepClonerFactory<T> clonerFactory, 
             Func<CancellationToken, Task<T>> asyncLoadDelegate, T initialValue, 
             TimeSpan refreshPeriod, TimeSpan? loadTimeout = null)
         {
@@ -48,7 +51,7 @@ namespace DotNotStandard.Caching.Core.InMemory
             if (refreshPeriod.TotalMilliseconds < 10) throw new ArgumentException(nameof(refreshPeriod));
 
             _logger = logger;
-            _cloner = cloner;
+            _clonerFactory = clonerFactory;
             _asyncLoadDelegate = asyncLoadDelegate;
             if (loadTimeout is null) loadTimeout = TimeSpan.MaxValue;
             _loadTimeout = loadTimeout.Value;
@@ -57,19 +60,23 @@ namespace DotNotStandard.Caching.Core.InMemory
             _loadItemTask = LoadCacheItem();
         }
 
+        #endregion
+
+        #region Exposed Properties and Methods
+
         /// <summary>
         /// Get the value currently held in the cache
         /// </summary>
         /// <returns></returns>
-        public T GetValue()
+        public T GetItem()
         {
-            return DeepClone(_cacheItem.Value);
+            return DeepCloneOf(_cacheItem.Value);
         }
 
         /// <summary>
         /// Invalidate the current cache item, so that it is reloaded as soon as possible
         /// </summary>
-        public void InvalidateCache()
+        public void Invalidate()
         {
             _refreshDelayCancellationTokenSource.Cancel();
         }
@@ -93,6 +100,8 @@ namespace DotNotStandard.Caching.Core.InMemory
             return _loadItemTask.Wait(timeout);
         }
 
+        #region IDisposable Interface
+
         /// <summary>
         /// Disposal method, used to clean up background processing
         /// </summary>
@@ -101,6 +110,10 @@ namespace DotNotStandard.Caching.Core.InMemory
             _refreshingCancellationTokenSource.Cancel();
             _refreshDelayCancellationTokenSource.Cancel();
         }
+
+        #endregion
+
+        #endregion
 
         #region Private Helper Methods
 
@@ -144,14 +157,20 @@ namespace DotNotStandard.Caching.Core.InMemory
         }
 
         /// <summary>
-        /// Clone the object using the cloner
+        /// Create a full clone of an object, thereby ensuring that the type
+        /// is not impacted by use across multiple threads, or multiple separate methods
         /// </summary>
-        /// <param name="itemToClone">The item to be cloned</param>
-        /// <returns>The result of cloning, using whatever method the cloner implements</returns>
-        private T DeepClone(T itemToClone)
+        /// <param name="item">The item that is to be cloned</param>
+        /// <returns>A deep/full clone of the object</returns>
+        private T DeepCloneOf(T item)
         {
-            throw new NotImplementedException("Implement cloning!");
-            // return _cloner.DeepClone(itemToClone)
+            T clone;
+            IDeepCloner<T> cloner;
+
+            cloner = _clonerFactory.GetCloner();
+            clone = cloner.DeepClone(item);
+
+            return clone;
         }
 
         #endregion
