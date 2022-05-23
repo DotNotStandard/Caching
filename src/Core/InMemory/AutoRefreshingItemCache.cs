@@ -18,7 +18,7 @@ namespace DotNotStandard.Caching.Core.InMemory
     /// In-memory cache that automatically refreshes the cache data to a schedule in the background
     /// </summary>
     /// <typeparam name="T">The type that is to be cached</typeparam>
-    internal class AutoRefreshingItemCache<T> : IDisposable
+    public class AutoRefreshingItemCache<T> : IDisposable
     {
         private bool _isInitialised = false;
         private readonly ILogger _logger;
@@ -29,7 +29,9 @@ namespace DotNotStandard.Caching.Core.InMemory
         private readonly TimeSpan _loadTimeout;
         private readonly TimeSpan _refreshPeriod;
         private CacheItem<T> _cacheItem;
-        private Task _loadItemTask;
+        private Task _initialisationTask;
+        private Task _refreshingTask;
+        private readonly object _clonerLock = new object();
 
         #region Constructors
 
@@ -41,7 +43,33 @@ namespace DotNotStandard.Caching.Core.InMemory
         /// <param name="asyncLoadDelegate">The delegate that is used to load data</param>
         /// <param name="initialValue">The initial value to place into the cache, before loading is complete</param>
         /// <param name="refreshPeriod">The period between cache refreshes - the maxmimum data staleness</param>
-        /// <param name="loadTimeout">The timeout for the load operation - defaults to TimeSpan.MaxValue</param>
+        /// <param name="loadTimeout">The timeout for the load operation - defaults to Timeout.InfiniteTimeSpan</param>
+        /// <exception cref="ArgumentException">One of the parameters was invalid</exception>
+        public AutoRefreshingItemCache(ILogger logger,
+            Func<CancellationToken, Task<T>> asyncLoadDelegate, T initialValue,
+            TimeSpan refreshPeriod, TimeSpan? loadTimeout = null)
+        {
+            if (loadTimeout.HasValue && loadTimeout.Value.TotalMilliseconds < 0) throw new ArgumentException(nameof(loadTimeout));
+            if (refreshPeriod.TotalMilliseconds < 10) throw new ArgumentException(nameof(refreshPeriod));
+
+            _logger = logger;
+            _clonerFactory = new CloneableClonerFactory<T>();
+            _asyncLoadDelegate = asyncLoadDelegate;
+            if (loadTimeout is null) loadTimeout = Timeout.InfiniteTimeSpan;
+            _loadTimeout = loadTimeout.Value;
+            _refreshPeriod = refreshPeriod;
+            _cacheItem = new CacheItem<T>(initialValue);
+        }
+
+        /// <summary>
+        /// Create a new instance for use in caching some data
+        /// </summary>
+        /// <param name="logger">A logger to use for reporting issues with loading</param>
+        /// <param name="clonerFactory">The factory for the cloner to in cloning the cached item prior to return</param>
+        /// <param name="asyncLoadDelegate">The delegate that is used to load data</param>
+        /// <param name="initialValue">The initial value to place into the cache, before loading is complete</param>
+        /// <param name="refreshPeriod">The period between cache refreshes - the maxmimum data staleness</param>
+        /// <param name="loadTimeout">The timeout for the load operation - defaults to Timeout.InfiniteTimeSpan</param>
         /// <exception cref="ArgumentException">One of the parameters was invalid</exception>
         public AutoRefreshingItemCache(ILogger logger, IDeepClonerFactory<T> clonerFactory, 
             Func<CancellationToken, Task<T>> asyncLoadDelegate, T initialValue, 
@@ -53,16 +81,97 @@ namespace DotNotStandard.Caching.Core.InMemory
             _logger = logger;
             _clonerFactory = clonerFactory;
             _asyncLoadDelegate = asyncLoadDelegate;
-            if (loadTimeout is null) loadTimeout = TimeSpan.MaxValue;
+            if (loadTimeout is null) loadTimeout = Timeout.InfiniteTimeSpan;
             _loadTimeout = loadTimeout.Value;
             _refreshPeriod = refreshPeriod;
             _cacheItem = new CacheItem<T>(initialValue);
-            _loadItemTask = LoadCacheItem();
         }
 
         #endregion
 
         #region Exposed Properties and Methods
+
+        #region Initialisation
+
+        /// <summary>
+        /// Synchronously perform initialisation, returning when the cache is fully
+        /// initialised.
+        /// </summary>
+        /// <remarks>
+        /// If data fails to load then this method will wait indefinitely
+        /// </remarks>
+        public void Initialise()
+        {
+            if (_initialisationTask is null)
+            {
+                StartInitialisation();
+            }
+            CompleteInitialisation();
+        }
+
+        /// <summary>
+        /// Asynchronously await initialisation. The method does not return until the cache is 
+        /// fully initialised. If data fails to load then this method will wait indefinitely
+        /// </summary>
+        /// <returns></returns>
+        public async Task InitialiseAsync()
+        {
+            if (_initialisationTask is null)
+            {
+                StartInitialisation();
+            }
+            await _initialisationTask.ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Start initialisation on a background thread without waiting for completion
+        /// </summary>
+        /// <remarks>
+        /// This method initiates a background operation and then immediately returns.
+        /// Use this method where you want to start initialisation but not wait for
+        /// it to complete immediately. Use in combination with either the CompleteInitialisation
+        /// or TryCompleteInitialisation methods
+        /// </remarks>
+        public void StartInitialisation()
+        {
+            _initialisationTask = DoInitialisationAsync();
+        }
+
+        /// <summary>
+        /// Await completion of the initial cache load with no timeout
+        /// </summary>
+        /// <remarks>
+        /// The method is for use in combination with the StartInitialisation method. 
+        /// The method does not return until the cache is fully initialised. If data fails to 
+        /// load then this method will wait indefinitely
+        /// </remarks>
+        public void CompleteInitialisation()
+        {
+            bool isInitialised = false;
+
+            while (!isInitialised)
+            {
+                isInitialised = TryCompleteInitialisation(Timeout.InfiniteTimeSpan);
+            }
+        }
+
+        /// <summary>
+        /// Await completion of the initial cache load up to a defined maximum timeout
+        /// </summary>
+        /// <remarks>
+        /// The method is for use in combination with the StartInitialisation method. 
+        /// The method does not return until the cache is fully initialised, or the timeout is reached.
+        /// The boolean return value indicates if initialisation was successfully completed.
+        /// </remarks>
+        /// <param name="timeout">The maximum allowed timeout before waiting is terminated</param>
+        /// <returns>Boolean indicating whether initialisation completed prior to the timeout elapsing</returns>
+        public bool TryCompleteInitialisation(TimeSpan timeout)
+        {
+            if (_isInitialised) return true;
+            return _initialisationTask.Wait(timeout);
+        }
+
+        #endregion
 
         /// <summary>
         /// Get the value currently held in the cache
@@ -79,25 +188,6 @@ namespace DotNotStandard.Caching.Core.InMemory
         public void Invalidate()
         {
             _refreshDelayCancellationTokenSource.Cancel();
-        }
-
-        /// <summary>
-        /// Await completion of the initial cache load with no timeout
-        /// </summary>
-        public void CompleteInitialisation()
-        {
-            TryCompleteInitialisation(TimeSpan.MaxValue);
-        }
-
-        /// <summary>
-        /// Await completion of the initial cache load up to a defined maximum timeout
-        /// </summary>
-        /// <param name="timeout">The maximum allowed timeout before waiting is terminated</param>
-        /// <returns>Boolean indicating whether initialisation completed prior to the timeout elapsing</returns>
-        public bool TryCompleteInitialisation(TimeSpan timeout)
-        {
-            if (_isInitialised) return true;
-            return _loadItemTask.Wait(timeout);
         }
 
         #region IDisposable Interface
@@ -118,42 +208,73 @@ namespace DotNotStandard.Caching.Core.InMemory
         #region Private Helper Methods
 
         /// <summary>
+        /// Perform initialisation of the cache
+        /// </summary>
+        /// <returns></returns>
+        private async Task DoInitialisationAsync()
+        {
+            bool successfullyInitialised = false;
+
+            while (!successfullyInitialised)
+            {
+                // Perform the initial data load into the cache
+                successfullyInitialised = await LoadCacheAsync().ConfigureAwait(false);
+                if (!successfullyInitialised) await Task.Delay(2000).ConfigureAwait(false);
+            }
+            _isInitialised = true;
+
+            // Start the scheduled refreshing cycle
+            _refreshingTask = RefreshCacheAsync();
+        }
+
+        /// <summary>
         /// Background method forming the task that loads data to the required schedule
         /// </summary>
-        private async Task LoadCacheItem()
+        private async Task RefreshCacheAsync()
         {
-            CancellationTokenSource cts;
-            CancellationToken cancellationToken;
-            
             while (!_refreshingCancellationTokenSource.IsCancellationRequested)
             {
+                // Await the refresh period before the next cache load attempt
                 try
                 {
-                    // Load the data using the provided delegate, timing out if needs be
-                    cts = new CancellationTokenSource(_loadTimeout);
-                    cancellationToken = cts.Token;
-                    T itemToCache = await _asyncLoadDelegate(cancellationToken);
-
-                    // Assign the loaded data into the cache (an atomic assignment operation)
-                    _cacheItem = new CacheItem<T>(itemToCache);
-                    _isInitialised = true;
-
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failure to load cache from source!");
-                }
-
-                // Await the refresh period before starting again
-                try
-                {
-                    await Task.Delay(_refreshPeriod, _refreshDelayCancellationTokenSource.Token);
+                    await Task.Delay(_refreshPeriod, _refreshDelayCancellationTokenSource.Token).ConfigureAwait(false);
                 }
                 catch (Exception ex) when (ex is TaskCanceledException || ex is OperationCanceledException)
                 {
                 }
                 _refreshDelayCancellationTokenSource = new CancellationTokenSource();
+
+                await LoadCacheAsync().ConfigureAwait(false);
             }
+        }
+
+        /// <summary>
+        /// Load data from the data source into the cache
+        /// </summary>
+        /// <returns>Boolean True if the load succeeds, otherwise false</returns>
+        private async Task<bool> LoadCacheAsync()
+        {
+            bool successfullyLoaded = false;
+            CancellationTokenSource cts;
+            CancellationToken cancellationToken;
+
+            try
+            {
+                // Load the data using the provided delegate, timing out if needs be
+                cts = new CancellationTokenSource(_loadTimeout);
+                cancellationToken = cts.Token;
+                T itemToCache = await _asyncLoadDelegate(cancellationToken).ConfigureAwait(false);
+
+                // Assign the loaded data into the cache (an atomic assignment operation)
+                _cacheItem = new CacheItem<T>(itemToCache);
+                successfullyLoaded = true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failure to load cache from source!");
+            }
+
+            return successfullyLoaded;
         }
 
         /// <summary>
@@ -168,7 +289,10 @@ namespace DotNotStandard.Caching.Core.InMemory
             IDeepCloner<T> cloner;
 
             cloner = _clonerFactory.GetCloner();
-            clone = cloner.DeepClone(item);
+            lock (_clonerLock)
+            {
+                clone = cloner.DeepClone(item);
+            }
 
             return clone;
         }
