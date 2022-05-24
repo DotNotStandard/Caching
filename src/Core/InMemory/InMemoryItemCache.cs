@@ -31,6 +31,7 @@ namespace DotNotStandard.Caching.Core.InMemory
 		private readonly Func<T> _syncRetrievalDelegate;
 		private readonly int _repeatRetrievalTimeout;
 		private readonly IDeepClonerFactory<T> _clonerFactory;
+		private readonly object _clonerLock = new object();
 
 		#region Constructors
 
@@ -214,7 +215,10 @@ namespace DotNotStandard.Caching.Core.InMemory
 			IDeepCloner<T> cloner;
 
 			cloner = _clonerFactory.GetCloner();
-			clone = cloner.DeepClone(item);
+			lock (_clonerLock)
+			{
+				clone = cloner.DeepClone(item);
+			}
 
 			return clone;
 		}

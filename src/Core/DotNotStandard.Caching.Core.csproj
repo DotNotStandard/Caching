@@ -13,6 +13,7 @@
     <RepositoryUrl>https://github.com/DotNotStandard/Caching</RepositoryUrl>
     <RepositoryType>Github</RepositoryType>
     <PackageTags>Caching, Memory</PackageTags>
+	<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
   </PropertyGroup>
 
   <ItemGroup>

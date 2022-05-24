@@ -1,4 +1,10 @@
-﻿using Microsoft.Extensions.Logging;
+﻿/*
+ * Copyright © 2022 DotNotStandard. All rights reserved.
+ * 
+ * See the LICENSE file in the root of the repo for licensing details.
+ * 
+ */
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
