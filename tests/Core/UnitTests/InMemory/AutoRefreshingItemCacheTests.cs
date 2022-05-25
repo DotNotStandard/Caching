@@ -362,7 +362,83 @@ namespace DotNotStandard.Caching.Core.UnitTests.InMemory
 		}
 
 		#endregion
-		
+
+		#endregion
+
+		#region Initialisation
+
+		[TestMethod]
+		public void Initialise_CacheLoadThrowsException_TimesOut()
+		{
+			// Arrange
+			AutoRefreshingItemCache<int> cache = new AutoRefreshingItemCache<int>(
+				new FakeLogger(),
+				new NonCloningClonerFactory<int>(),
+				(ct) => { throw new Exception("Test exception raised during cache load tests"); },
+				0,
+				TimeSpan.FromMinutes(30)
+				);
+			bool actualResult;
+			bool expectedResult = false;
+
+			cache.StartInitialisation();
+
+			// Act
+			actualResult = cache.TryCompleteInitialisation(TimeSpan.FromMilliseconds(50));
+
+			// Assert
+			Assert.AreEqual(expectedResult, actualResult);
+
+		}
+
+		[TestMethod]
+		public void TryCompleteInitialisation_ImmediateCacheLoad_DoesNotTimeOut()
+		{
+			// Arrange
+			AutoRefreshingItemCache<int> cache = new AutoRefreshingItemCache<int>(
+				new FakeLogger(),
+				new NonCloningClonerFactory<int>(),
+				(ct) => { return Task.FromResult(125); },
+				0,
+				TimeSpan.FromMinutes(30)
+				);
+			bool actualResult;
+			bool expectedResult = true;
+
+			cache.StartInitialisation();
+
+			// Act
+			actualResult = cache.TryCompleteInitialisation(TimeSpan.FromMilliseconds(50));
+
+			// Assert
+			Assert.AreEqual(expectedResult, actualResult);
+
+		}
+
+		[TestMethod]
+		public void TryCompleteInitialisation_VerySlowCacheLoad_TimesOut()
+        {
+			// Arrange
+			AutoRefreshingItemCache<int> cache = new AutoRefreshingItemCache<int>(
+				new FakeLogger(),
+				new NonCloningClonerFactory<int>(),
+				async (ct) => { await TimeDelay.WaitForAsync(30000); return 125; },
+				0,
+				TimeSpan.FromMinutes(30)
+				);
+			bool actualResult;
+			bool expectedResult = false;
+
+			cache.StartInitialisation();
+
+			// Act
+			actualResult = cache.TryCompleteInitialisation(TimeSpan.FromMilliseconds(50));
+
+			// Assert
+			Assert.AreEqual(expectedResult, actualResult);
+
+		}
+
 		#endregion
 
 	}
